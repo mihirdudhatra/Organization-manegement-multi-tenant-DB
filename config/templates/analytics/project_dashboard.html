@@ -1,0 +1,42 @@
+{% extends "base/base.html" %}
+{% block title %}Project Analytics{% endblock %}
+{% block content %}
+
+<div class="mb-3">
+    <a href="{% url 'project-list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Projects</a>
+</div>
+
+<h2>Project Analytics</h2>
+
+{% if snapshots %}
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Open</th>
+                <th>In Progress</th>
+                <th>Blocked</th>
+                <th>Done</th>
+                <th>Avg Completion (sec)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in snapshots %}
+            <tr>
+                <td>{{ s.date }}</td>
+                <td>{{ s.tasks_open }}</td>
+                <td>{{ s.tasks_in_progress }}</td>
+                <td>{{ s.tasks_blocked }}</td>
+                <td>{{ s.tasks_done }}</td>
+                <td>{{ s.avg_completion_seconds }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">No analytics yet</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base/base.html" %}
+{% block content %}
+
+<h2>Update Task</h2>
+
+<form method="post">
+    {% csrf_token %}
+    <label for="title">Title:</label>
+    <input type="text" id="title" name="title" value="{{ task.title }}" required><br><br>
+
+    <label for="description">Description:</label><br>
+    <textarea id="description" name="description" rows="4" cols="50">{{ task.description }}</textarea><br><br>
+
+    <label for="status">Status:</label>
+    <select id="status" name="status">
+        <option value="OPEN" {% if task.status == 'OPEN' %}selected{% endif %}>Open</option>
+        <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+        <option value="BLOCKED" {% if task.status == 'BLOCKED' %}selected{% endif %}>Blocked</option>
+        <option value="DONE" {% if task.status == 'DONE' %}selected{% endif %}>Done</option>
+    </select><br><br>
+
+    <label for="assigned_to">Assigned To:</label>
+    <select id="assigned_to" name="assigned_to">
+        <option value="">Unassigned</option>
+        {% for user in users %}
+        <option value="{{ user.id }}" {% if task.assigned_to == user.id %}selected{% endif %}>{{ user.username }}</option>
+        {% endfor %}
+    </select><br><br>
+
+    <button type="submit">Update</button>
+</form>
+
+{% if error %}
+<p style="color: red;">Error: {{ error }}</p>
+{% endif %}
+
+<a href="{% url 'task-list-ui' %}">← Back</a>
+
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base/base.html" %}
+{% block content %}
+<h2>Task SLA</h2>
+
+{% if sla.error %}
+<p style="color: red;">{{ sla.error }}</p>
+{% else %}
+<ul>
+  <li>Time in OPEN: {{ sla.open_seconds }} seconds</li>
+  <li>Time in IN_PROGRESS: {{ sla.in_progress_seconds }} seconds</li>
+  <li>Time in BLOCKED: {{ sla.blocked_seconds }} seconds</li>
+</ul>
+{% endif %}
+
+<a href="{% url 'task-list-ui' %}">← Back</a>
+{% endblock %}

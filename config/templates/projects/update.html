@@ -1,0 +1,23 @@
+{% extends "base/base.html" %}
+{% block content %}
+
+<h2>Update Project</h2>
+
+<form method="post">
+    {% csrf_token %}
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="name" value="{{ project.name }}" required><br><br>
+
+    <label for="description">Description:</label><br>
+    <textarea id="description" name="description" rows="4" cols="50">{{ project.description }}</textarea><br><br>
+
+    <button type="submit">Update</button>
+</form>
+
+{% if error %}
+<p style="color: red;">Error: {{ error }}</p>
+{% endif %}
+
+<a href="{% url 'project-list' %}">← Back to Projects</a>
+
+{% endblock %}
