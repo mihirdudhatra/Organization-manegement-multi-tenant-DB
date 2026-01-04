@@ -4,14 +4,14 @@ from django.db import connections, transaction
 from system.services.db_utils import create_postgres_database, register_tenant_db
 from system.services.migration_utils import migrate_tenant_database
 from system.models import Tenant, TenantDatabase, User
-from system.tenant_context import set_current_tenant_db as set_current_tenant
+from system.tenant_context import set_current_tenant_db as set_current_tenant, tenant_db_context
 from rest_framework.exceptions import ValidationError
 from users.models import TenantUser
 
 
 class TenantService:
     @staticmethod
-    # @transaction.atomic
+    @transaction.atomic
     def create_tenant(
         *,
         tenant_name: str,
@@ -54,7 +54,7 @@ class TenantService:
         )
 
         register_tenant_db(
-            alias="tenant",
+            alias=db_name,
             db_config={
                 "NAME": tenant_db.db_name,
                 "USER": tenant_db.db_user,
@@ -66,7 +66,7 @@ class TenantService:
         )
 
         # initialize tenant db connection
-        connections.databases["tenant"] = {
+        connections.databases[db_name] = {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": tenant_db.db_name,
             "USER": tenant_db.db_user,
@@ -82,25 +82,25 @@ class TenantService:
         }
 
         # runs migrations
-        migrate_tenant_database("tenant")
+        migrate_tenant_database(db_name)
 
         set_current_tenant(tenant)
 
         # create admin user in master DB
         admin_user = User.objects.create(
             username=admin_username,
-            password=admin_password,
+            first_name="Admin",
+            last_name="User",
             role=User.Role.ADMIN,
             tenant=tenant,
             is_staff=True,
             is_superuser=True,
         )
+        admin_user.set_password(admin_password)
+        admin_user.save()
 
-        # add user to tenant DB
-        user = TenantUser.objects.using("tenant").create(
-            auth_user = admin_user.id,
-            tenant = tenant.id,
-            role ="Admin"
-        )
+        with tenant_db_context(db_name):
+            TenantUser.objects.using(db_name).create(auth_user=admin_user.id, tenant=tenant.id.hex, role=User.Role.ADMIN,)
+
 
         return tenant, admin_user

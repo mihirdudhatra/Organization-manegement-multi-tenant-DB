@@ -13,7 +13,7 @@ class TaskActivityService:
         *,
         task: Task,
         action: str,
-        user: Optional[User],
+        user_id: Optional[User],
         old_value: Optional[str] = None,
         new_value: Optional[str] = None,
         comment: str = "",
@@ -28,5 +28,5 @@ class TaskActivityService:
             old_value=old_value,
             new_value=new_value,
             comment=comment,
-            performed_by=user.username if user else None,
+            performed_by=user_id,
         )

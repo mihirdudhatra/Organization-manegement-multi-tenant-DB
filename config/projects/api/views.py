@@ -81,12 +81,10 @@ class ProjectViewSet(ModelViewSet):
         return ProjectService.list_projects(user=self.request.user)
 
     def perform_create(self, serializer):
-        """
-        Time: O(1)
-        Space: O(1)
-        """
-        ProjectService.create_project(
+        project = ProjectService.create_project(
             user=self.request.user,
             name=serializer.validated_data["name"],
             description=serializer.validated_data.get("description", ""),
         )
+
+        serializer.instance = project

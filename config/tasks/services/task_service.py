@@ -8,7 +8,7 @@ from projects.models import Project
 from config.permissions import Permissions
 from system.tenant_context import set_current_tenant_db as set_current_tenant
 from system.models import User
-
+from system.db_registry import ensure_tenant_db_registered
 # Import Celery tasks (created in analytics.tasks)
 from analytics.tasks import generate_project_snapshot
 from tasks.notifications import notify_assignment, notify_status_change
@@ -22,30 +22,33 @@ class TaskService:
 
     @staticmethod
     def get_task(*, user, task_id):
-        set_current_tenant(user.tenant)
-        return Task.objects.using('tenant').get(id=task_id, is_deleted=False)
+        db = ensure_tenant_db_registered(user.tenant)
+        set_current_tenant(db)
+        return Task.objects.using(db).get(id=task_id, is_deleted=False)
 
     @staticmethod
     def create_task(*, user, project: Project, title: str, description: str) -> Task:
         if not Permissions.can_create_task(user):
             raise PermissionDenied("Not allowed to create tasks")
 
-        set_current_tenant(user.tenant)
+        db = ensure_tenant_db_registered(user.tenant)
+        set_current_tenant(db)
 
-        task = Task.objects.using('tenant').create(
+        task = Task.objects.using(db).create(
             project=project, 
             title=title,
-            description = description
+            description = description,
+            assigned_to = user.id
         )
 
         TaskActivityService.log(
             task=task,
             action="CREATE",
-            user=user,
+            user_id=user.id,
         )
 
         # Initialize SLA tracking for the task
-        TaskSLA.objects.using('tenant').create(
+        TaskSLA.objects.using(db).create(
             task=task,
             last_status=task.status,
             last_status_changed_at=timezone.now(),
@@ -65,9 +68,10 @@ class TaskService:
     
     @staticmethod
     def list_tasks(*, user, project_id=None):
-        set_current_tenant(user.tenant)
+        db = ensure_tenant_db_registered(user.tenant)
+        set_current_tenant(db)
 
-        qs = Task.objects.using('tenant').filter(is_deleted=False)
+        qs = Task.objects.using(db).filter(is_deleted=False)
 
         if project_id:
             qs = qs.filter(project_id=project_id)
@@ -79,7 +83,8 @@ class TaskService:
         if not Permissions.can_update_task_status(user):  # Assuming same permission for updates
             raise PermissionDenied("Not allowed to update tasks")
 
-        set_current_tenant(user.tenant)
+        db = ensure_tenant_db_registered(user.tenant)
+        set_current_tenant(db)
         old_values = {}
 
         # Handle status change specially to update SLA and emit background jobs

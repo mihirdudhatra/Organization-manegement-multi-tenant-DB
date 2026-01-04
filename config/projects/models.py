@@ -9,7 +9,7 @@ class Project(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
 
-    created_by = models.ImageField()    
+    created_by = models.IntegerField()
 
     created_at = models.DateTimeField(auto_now_add=True)
     is_deleted = models.BooleanField(default=False)

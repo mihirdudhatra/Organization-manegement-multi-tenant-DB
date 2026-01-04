@@ -138,6 +138,7 @@ def login_ui_view(request):
             # Optional (useful for UI logic)
             request.session["role"] = data.get("role")
             request.session["tenant_id"] = data.get("tenant_id")
+            request.session["is_authenticated"] = True
 
             request.session.save()
 

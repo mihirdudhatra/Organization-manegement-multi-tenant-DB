@@ -35,3 +35,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["role"] = user.role
         token["tenant_id"] = str(user.tenant_id)
         return token
+
+    def validate(self, attrs):
+        """
+        Override validate to expose role & tenant_id
+        in response body (UI needs this).
+        """
+        data = super().validate(attrs)
+
+        data["role"] = self.user.role
+        data["tenant_id"] = str(self.user.tenant_id)
+
+        return data

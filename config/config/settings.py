@@ -59,6 +59,7 @@ AUTH_USER_MODEL = "system.User"
 
 
 MIDDLEWARE = [
+    'system.tenant_db_middleware.TenantDatabaseMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
 
@@ -209,3 +210,5 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
 }
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_NAME = "master_sessionid"

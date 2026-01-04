@@ -57,10 +57,22 @@ class TenantDatabaseRouter:
 
     def allow_relation(self, obj1, obj2, **hints) -> bool:
         return obj1._state.db == obj2._state.db
+    #
+    # def allow_migrate(self, db, app_label, **hints) -> bool:
+    #     if app_label in settings.SYSTEM_APPS:
+    #         return db == "default"
+    #     if app_label in settings.TENANT_APPS:
+    #         return db != "default"
+    #     return False
+    # def allow_relation(self, obj1, obj2, **hints):
+    #     return True
 
-    def allow_migrate(self, db, app_label, **hints) -> bool:
+    def allow_migrate(self, db, app_label, model_name=None, **hints):
+
         if app_label in settings.SYSTEM_APPS:
             return db == "default"
+
         if app_label in settings.TENANT_APPS:
             return db != "default"
-        return False
+
+        return None

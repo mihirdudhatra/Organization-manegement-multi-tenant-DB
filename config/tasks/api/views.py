@@ -12,7 +12,8 @@ from tasks.api.serializers import (
 from tasks.services.task_service import TaskService
 from drf_yasg.utils import swagger_auto_schema
 from config.swagger import TENANT_HEADER
-from system.models import User
+from rest_framework import status
+from system.db_registry import ensure_tenant_db_registered
 
 
 class TaskViewSet(ViewSet):
@@ -27,6 +28,7 @@ class TaskViewSet(ViewSet):
     def list(self, request):
         user = self.get_user(request)
         project_id = request.query_params.get("project")
+
         tasks = TaskService.list_tasks(
             user=user,
             project_id=project_id,
@@ -36,52 +38,87 @@ class TaskViewSet(ViewSet):
     @swagger_auto_schema(manual_parameters=[TENANT_HEADER])
     def create(self, request):
         user = self.get_user(request)
+        db = ensure_tenant_db_registered(user.tenant)
+
         project = get_object_or_404(
-            Project,
-            id=request.data["project"],
+            Project.objects.using(db),
+            id=request.data.get("project"),
         )
 
         task = TaskService.create_task(
             user=user,
             project=project,
-            title=request.data["title"],
-            
+            title=request.data.get("title"),
+            description=request.data.get("description", ""),
         )
-        return Response(TaskSerializer(task).data, status=201)
+
+        return Response(
+            TaskSerializer(task).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @swagger_auto_schema(manual_parameters=[TENANT_HEADER])
     def partial_update(self, request, pk=None):
         user = self.get_user(request)
-        task = get_object_or_404(Task, pk=pk)
-        
-        # Allow updating title, description, status, assigned_to
-        allowed_fields = ['title', 'description', 'status', 'assigned_to']
-        updates = {k: v for k, v in request.data.items() if k in allowed_fields}
-        
-        TaskService.update_task(user=user, task=task, **updates)
-        return Response(TaskSerializer(task).data)
+        db = ensure_tenant_db_registered(user.tenant)
+
+        task = get_object_or_404(
+            Task.objects.using(db),
+            pk=pk,
+            is_deleted=False,
+        )
+
+        allowed_fields = {"title", "description", "status", "assigned_to"}
+        updates = {
+            k: v for k, v in request.data.items()
+            if k in allowed_fields
+        }
+
+        updated_task = TaskService.update_task(
+            user=user,
+            task=task,
+            **updates,
+        )
+
+        return Response(TaskSerializer(updated_task).data)
+
 
     @swagger_auto_schema(manual_parameters=[TENANT_HEADER])
-    @action(detail=True, methods=["get"], url_path="audit")
+    @action(detail=True, methods=["get"])
     def audit(self, request, pk=None):
-        task = get_object_or_404(Task, pk=pk)
+        user = self.get_user(request)
+        db = ensure_tenant_db_registered(user.tenant)
+
+        task = get_object_or_404(
+            Task.objects.using(db),
+            pk=pk,
+        )
+
         activities = task.activities.all()
         return Response(
             TaskActivitySerializer(activities, many=True).data
         )
 
+    @swagger_auto_schema(manual_parameters=[TENANT_HEADER])
     @action(detail=True, methods=["get"])
     def sla(self, request, pk=None):
-        task = get_object_or_404(Task, pk=pk)
+        user = self.get_user(request)
+        db = ensure_tenant_db_registered(user.tenant)
+
+        task = get_object_or_404(
+            Task.objects.using(db),
+            pk=pk,
+        )
+
         try:
             sla = task.sla
+            return Response(TaskSLASerializer(sla).data)
         except TaskSLA.DoesNotExist:
-            # Return default SLA data if not exists
-            sla_data = {
-                "open_seconds": 0,
-                "in_progress_seconds": 0,
-                "blocked_seconds": 0,
-                "updated_at": task.created_at,
-            }
-            return Response(sla_data)
-        return Response(TaskSLASerializer(sla).data)
+            return Response(
+                {
+                    "open_seconds": 0,
+                    "in_progress_seconds": 0,
+                    "blocked_seconds": 0,
+                    "updated_at": task.created_at,
+                }
+            )
