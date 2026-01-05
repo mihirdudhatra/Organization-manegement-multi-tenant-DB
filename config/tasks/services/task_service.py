@@ -12,6 +12,7 @@ from system.db_registry import ensure_tenant_db_registered
 # Import Celery tasks (created in analytics.tasks)
 from analytics.tasks import generate_project_snapshot
 from tasks.notifications import notify_assignment, notify_status_change
+from users.models import TenantUser
 
 class TaskService:
     ALLOWED_TRANSITIONS = {
@@ -20,6 +21,27 @@ class TaskService:
         Task.Status.BLOCKED: [Task.Status.IN_PROGRESS],
     }
 
+
+    @staticmethod
+    def _validate_assignment(*, actor: User, assignee: Optional[TenantUser]) -> int:
+        """
+        Validates task assignment based on role.
+
+        Time: O(1)
+        Space: O(1)
+        """
+        if assignee is None:
+            return None
+
+        # Member can only assign to themselves
+        if actor.role == User.Role.MEMBER:
+            if assignee.id != actor.id:
+                raise PermissionDenied(
+                    "Members can only assign tasks to themselves"
+                )
+
+        return assignee.id
+
     @staticmethod
     def get_task(*, user, task_id):
         db = ensure_tenant_db_registered(user.tenant)
@@ -27,21 +49,27 @@ class TaskService:
         return Task.objects.using(db).get(id=task_id, is_deleted=False)
 
     @staticmethod
-    def create_task(*, user, project: Project, title: str, description: str) -> Task:
+    def create_task(*, user, project: Project, title: str, description: str, assigned_to: Optional[TenantUser] = None) -> Task:
         if not Permissions.can_create_task(user):
             raise PermissionDenied("Not allowed to create tasks")
 
         db = ensure_tenant_db_registered(user.tenant)
         set_current_tenant(db)
 
+        assignee_id = TaskService._validate_assignment(
+            actor=user,
+            assignee=assigned_to,
+        )
+
         task = Task.objects.using(db).create(
             project=project, 
             title=title,
             description = description,
-            assigned_to = user.id
+            assigned_to = assignee_id
         )
 
         TaskActivityService.log(
+            db=db,
             task=task,
             action="CREATE",
             user_id=user.id,
@@ -59,10 +87,13 @@ class TaskService:
 
         # Trigger async analytics update for the project (idempotent)
         try:
-            generate_project_snapshot.delay(project.id)
+            generate_project_snapshot(
+                db=db,
+                project_id=project.id,
+            )
         except Exception:
-            # Do not fail the request if analytics worker is unavailable
             pass
+
 
         return task
     
@@ -80,7 +111,7 @@ class TaskService:
 
     @staticmethod
     def update_task(*, user, task: Task, **updates) -> Task:
-        if not Permissions.can_update_task_status(user):  # Assuming same permission for updates
+        if not Permissions.can_update_task_status(user): 
             raise PermissionDenied("Not allowed to update tasks")
 
         db = ensure_tenant_db_registered(user.tenant)
@@ -108,13 +139,12 @@ class TaskService:
             try:
                 sla = task.sla
             except TaskSLA.DoesNotExist:
-                sla = TaskSLA.objects.create(
+                sla = TaskSLA.objects.using(db).create(
                     task=task,
                     last_status=old_values['status'],
                     last_status_changed_at=now,
                 )
 
-            # compute elapsed seconds for previous status
             elapsed = int((now - sla.last_status_changed_at).total_seconds()) if sla.last_status_changed_at else 0
 
             if sla.last_status == Task.Status.OPEN:
@@ -140,9 +170,10 @@ class TaskService:
         if old_values:
             action = "STATUS_CHANGE" if 'status' in old_values else "UPDATE"
             TaskActivityService.log(
+                db=db,
                 task=task,
                 action=action,
-                user=user,
+                user_id=user.id,
                 old_value=str(old_values),
                 new_value=str(updates),
             )
@@ -159,12 +190,13 @@ class TaskService:
                 if 'status' in old_values:
                     notify_status_change.delay(task.id, old_values['status'], task.status)
             except Exception:
-                # best-effort, never fail the request
                 pass
 
-        # Trigger async analytics update for the project (best-effort)
         try:
-            generate_project_snapshot.delay(task.project.id)
+            generate_project_snapshot(
+                db=db,
+                project_id=task.project.id,
+            )
         except Exception:
             pass
 
@@ -175,12 +207,14 @@ class TaskService:
         if not Permissions.can_delete_task(user):
             raise PermissionDenied("Only admin can delete")
 
-        set_current_tenant(user.tenant)
+        db = ensure_tenant_db_registered(user.tenant)
+        set_current_tenant(db)
 
         task.is_deleted = True
         task.save(update_fields=["is_deleted"])
 
         TaskActivityService.log(
+            db=db,
             task=task,
             action="DELETE",
             user=user,

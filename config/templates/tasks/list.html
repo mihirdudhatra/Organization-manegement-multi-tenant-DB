@@ -19,6 +19,7 @@
         <thead>
             <tr>
                 <th>Title</th>
+                <th>Project</th>
                 <th>Description</th>
                 <th>Status</th>
                 <th>Assigned To</th>
@@ -26,37 +27,91 @@
             </tr>
         </thead>
         <tbody>
-            {% for task in tasks %}
-            <tr>
-                <td><a href="{% url 'task-detail' task.id %}">{{ task.title }}</a></td>
-                <td>{{ task.description }}</td>
-                <td>
-                    <span class="badge 
-                        {% if task.status == 'OPEN' %}bg-secondary
-                        {% elif task.status == 'IN_PROGRESS' %}bg-primary
-                        {% elif task.status == 'BLOCKED' %}bg-warning
-                        {% elif task.status == 'DONE' %}bg-success{% endif %}">
-                        {{ task.get_status_display }}
-                    </span>
-                </td>
-                <td>{{ task.assigned_to|default:"Unassigned" }}</td>
-                <td>
-                    <form method="post" action="{% url 'task-status-update' task.id %}" class="d-inline">
-                        {% csrf_token %}
-                        <select name="status" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()">
-                            <option value="OPEN" {% if task.status == 'OPEN' %}selected{% endif %}>Open</option>
-                            <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
-                            <option value="BLOCKED" {% if task.status == 'BLOCKED' %}selected{% endif %}>Blocked</option>
-                            <option value="DONE" {% if task.status == 'DONE' %}selected{% endif %}>Done</option>
-                        </select>
-                    </form>
-                    <!-- <a href="{% url 'task-update' task.id %}" class="btn btn-outline-secondary btn-sm ms-1">Edit</a> -->
-                    <a href="{% url 'task-delete' task.id %}" class="btn btn-outline-danger btn-sm ms-1">Delete</a>
-                    <a href="{% url 'task-audit-ui' task.id %}" class="btn btn-outline-info btn-sm ms-1">Audit</a>
-                </td>
-            </tr>
-            {% endfor %}
+        {% for task in tasks %}
+        <tr>
+            <!-- Title -->
+            <td>
+                <a href="{% url 'task-detail' task.id %}">
+                    {{ task.title }}
+                </a>
+            </td>
+
+            <!-- Project -->
+            <td>
+                {{ task.project_name|default:"—" }}
+            </td>
+
+            <!-- Description -->
+            <td>
+                {{ task.description }}
+            </td>
+
+            <!-- Status -->
+            <td>
+            <span class="badge
+                {% if task.status == 'OPEN' %}bg-secondary
+                {% elif task.status == 'IN_PROGRESS' %}bg-primary
+                {% elif task.status == 'BLOCKED' %}bg-warning
+                {% elif task.status == 'DONE' %}bg-success{% endif %}">
+                {{ task.status }}
+            </span>
+            </td>
+
+            <!-- Assigned To -->
+            <td>
+                <form method="post"
+                      action="{% url 'task-update' task.id %}"
+                      class="d-inline">
+                    {% csrf_token %}
+
+                    <select name="assigned_to"
+                            class="form-select form-select-sm w-auto"
+                            onchange="this.form.submit()">
+
+                        <option value="">Unassigned</option>
+
+                        {% for user in users %}
+                        <option value="{{ user.id }}"
+                                {% if task.assigned_to == user.id %}
+                                selected
+                                {% endif %}>
+                            {{ user.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </td>
+
+            <!-- Actions -->
+            <td>
+                <form method="post"
+                      action="{% url 'task-status-update' task.id %}"
+                      class="d-inline">
+                    {% csrf_token %}
+                    <select name="status"
+                            class="form-select form-select-sm d-inline w-auto"
+                            onchange="this.form.submit()">
+                        <option value="OPEN" {% if task.status == 'OPEN' %}selected{% endif %}>Open</option>
+                        <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+                        <option value="BLOCKED" {% if task.status == 'BLOCKED' %}selected{% endif %}>Blocked</option>
+                        <option value="DONE" {% if task.status == 'DONE' %}selected{% endif %}>Done</option>
+                    </select>
+                </form>
+
+                <a href="{% url 'task-delete' task.id %}"
+                   class="btn btn-outline-danger btn-sm ms-1">
+                    Delete
+                </a>
+
+                <a href="{% url 'task-audit-ui' task.id %}"
+                   class="btn btn-outline-info btn-sm ms-1">
+                    Audit
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
         </tbody>
+
     </table>
 </div>
 {% else %}

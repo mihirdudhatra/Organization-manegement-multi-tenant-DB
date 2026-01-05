@@ -16,32 +16,41 @@
     <div class="card-body">
         <p><strong>Description:</strong> {{ task.description|linebreaks }}</p>
 
-        <p><strong>Status:</strong>
-            <span class="badge
-                {% if task.status == 'OPEN' %}bg-secondary
-                {% elif task.status == 'IN_PROGRESS' %}bg-primary
-                {% elif task.status == 'BLOCKED' %}bg-warning
-                {% elif task.status == 'DONE' %}bg-success{% endif %}">
-                {{ task.get_status_display }}
-            </span> 
+        <p>
+            <strong>Status:</strong>
+            {% if current_role != "MEMBER" or task.assigned_to == current_user_id %}
+            <select name="status"
+                    class="form-select form-select-sm d-inline w-auto"
+                    onchange="this.form.submit()">
+                <option value="OPEN" {% if task.status == "OPEN" %}selected{% endif %}>Open</option>
+                <option value="IN_PROGRESS" {% if task.status == "IN_PROGRESS" %}selected{% endif %}>In Progress</option>
+                <option value="BLOCKED" {% if task.status == "BLOCKED" %}selected{% endif %}>Blocked</option>
+                <option value="DONE" {% if task.status == "DONE" %}selected{% endif %}>Done</option>
+            </select>
+        {% endif %}
         </p>
 
-        <!-- Assigned To -->
         <div class="mb-3">
             <label for="assigned_to" class="form-label"><strong>Assigned To</strong></label>
-            <select id="assigned_to" name="assigned_to" class="form-select">
-                <span value="">Unassigned</option>
+            <select name="assigned_to"
+                    class="form-select w-auto"
+                    onchange="this.form.submit()">
+
+                <option value="">Unassigned</option>
+
                 {% for user in users %}
-                    <option value="{{ user.id }}"
-                        {% if task.assigned_to_id == user.id %}selected{% endif %}>
-                        {{ user.username }}
-                    </span>
+                <option value="{{ user.id }}"
+                        {% if task.assigned_to == user.id %}
+                        selected
+                        {% endif %}>
+                    {{ user.username }}
+                </option>
                 {% endfor %}
             </select>
         </div>
 
         <p><strong>Created At:</strong> {{ task.created_at }}</p>
-        <p><strong>Project:</strong> {{ task.project.name }}</p>
+        <p><strong>Project:</strong> {{ task.project_name }}</p>
     </div>
 
     <div class="card-footer">

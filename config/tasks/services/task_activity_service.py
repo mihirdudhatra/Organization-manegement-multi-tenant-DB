@@ -11,9 +11,10 @@ class TaskActivityService:
     @staticmethod
     def log(
         *,
+        db,
         task: Task,
         action: str,
-        user_id: Optional[User],
+        user_id: Optional[User.id],
         old_value: Optional[str] = None,
         new_value: Optional[str] = None,
         comment: str = "",
@@ -22,7 +23,7 @@ class TaskActivityService:
         Time: O(1)
         Space: O(1)
         """
-        TaskActivity.objects.using('tenant').create(
+        TaskActivity.objects.using(db).create(
             task=task,
             action=action,
             old_value=old_value,

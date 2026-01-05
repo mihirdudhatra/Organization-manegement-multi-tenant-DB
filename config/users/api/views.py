@@ -4,35 +4,11 @@ from rest_framework import status
 from django.contrib.auth import authenticate
 from rest_framework import generics
 from system.models import User
-from users.api.serializers import UserSerializer, CustomTokenObtainPairSerializer
+from users.api.serializers import UserSerializer, CustomTokenObtainPairSerializer, UserUpdateSerializer
 from users.services.user_service import UserService
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 
-# class LoginAPIView(APIView):
-#     authentication_classes = []
-#     permission_classes = []
-
-#     def post(self, request):
-#         user = authenticate(
-#             username=request.data.get("username"),
-#             password=request.data.get("password"),
-#         )
-
-#         if not user:
-#             return Response(
-#                 {"detail": "Invalid credentials"},
-#                 status=status.HTTP_401_UNAUTHORIZED,
-#             )
-
-#         return Response(
-#             {
-#                 "id": user.id,
-#                 "username": user.username,
-#                 "role": user.role,
-#             },
-#             status=status.HTTP_200_OK,
-#         )
 
 class LoginAPIView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -56,7 +32,7 @@ class UserListCreateAPIView(generics.ListCreateAPIView):
 
 class UserRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = UserUpdateSerializer
 
     def perform_update(self, serializer):
         target_user = self.get_object()

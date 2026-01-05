@@ -28,7 +28,7 @@
                         {% if user.role == 'ADMIN' %}bg-danger
                         {% elif user.role == 'MANAGER' %}bg-warning
                         {% else %}bg-secondary{% endif %}">
-                        {{ user.get_role_display }}
+                        {{ user.role }}
                     </span>
                 </td>
                 <td>

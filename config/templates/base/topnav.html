@@ -2,7 +2,9 @@
     <div class="container-fluid">
         <span class="navbar-brand">Task Platform</span>
         <div class="d-flex">
-            <span class="navbar-text me-3">Welcome, {{ user.username }} ({{ user.tenant.name }})</span>
+            <span class="navbar-text me-3">
+              Welcome, {{ request.session.username }} ({{ request.session.tenant_id }})
+            </span>
             <a href="{% url 'logout' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
     </div>

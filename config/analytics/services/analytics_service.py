@@ -10,15 +10,15 @@ class AnalyticsService:
     """
 
     @staticmethod
-    def generate_daily_snapshot(*, project, snapshot_date=None):
+    def generate_daily_snapshot(*,db, project, snapshot_date=None):
         snapshot_date = snapshot_date or date.today()
 
-        tasks = Task.objects.filter(
+        tasks = Task.objects.using(db).filter(
             project=project,
             is_deleted=False,
         )
 
-        snapshot, _ = AnalyticsSnapshot.objects.update_or_create(
+        snapshot, _ = AnalyticsSnapshot.objects.using(db).update_or_create(
             project=project,
             date=snapshot_date,
             defaults={
@@ -38,7 +38,7 @@ class AnalyticsService:
                     updated_at__date=snapshot_date,
                 ).count(),
                 "avg_completion_seconds": int(
-                    TaskSLA.objects.filter(
+                    TaskSLA.objects.using(db).filter(
                         task__project=project
                     ).aggregate(
                         avg=Avg("in_progress_seconds")

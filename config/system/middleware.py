@@ -49,6 +49,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from system.models import TenantDatabase
 from system.tenant_context import set_current_tenant_db
 from django.http import HttpResponseForbidden
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework.response import Response
+from rest_framework import status
+from django.http import JsonResponse
+from uuid import UUID
 
 
 class TenantMiddleware:
@@ -57,26 +62,31 @@ class TenantMiddleware:
         self.jwt_auth = JWTAuthentication()
 
     def __call__(self, request):
-        auth = self.jwt_auth.authenticate(request)
-
-        if auth is None:
-            return self.get_response(request)
-
-        user, token = auth
-        tenant_id = token.get("tenant_id")
+        tenant_id = request.headers.get("X-Tenant-ID")
 
         if not tenant_id:
-            return HttpResponseForbidden("Tenant missing")
+            return self.get_response(request)
 
         try:
-            tenant_db = TenantDatabase.objects.get(
-                tenant_id=tenant_id,
+            tenant_uuid = UUID(tenant_id)
+        except ValueError:
+            return JsonResponse(
+                {"detail": "Invalid tenant id"},
+                status=403,
+            )
+
+        try:
+            tenant_db = TenantDatabase.objects.select_related("tenant").get(
+                tenant_id=tenant_uuid,
                 tenant__is_active=True,
             )
         except TenantDatabase.DoesNotExist:
-            return HttpResponseForbidden("Invalid tenant")
+            return JsonResponse(
+                {"detail": "Invalid or inactive tenant"},
+                status=403,
+            )
 
-        set_current_tenant_db(tenant_db.db_name)
+        # set_current_tenant_id(tenant_uuid)
+        # set_current_tenant_db(tenant_db.db_name)
 
         return self.get_response(request)
-

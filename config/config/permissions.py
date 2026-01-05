@@ -14,9 +14,7 @@ class Permissions:
     UPDATE_PROJECT = {"ADMIN", "MANAGER"}
     DELETE_PROJECT = {"ADMIN"}
 
-    CREATE_USER = {"ADMIN", "MANAGER"}
-    UPDATE_USER = {"ADMIN"}
-    DELETE_USER = {"ADMIN"}
+    CREATE_USER = UPDATE_USER = DELETE_USER = {"ADMIN", "MANAGER"}
 
     @staticmethod
     def has_permission(user: User, permission: set) -> bool:

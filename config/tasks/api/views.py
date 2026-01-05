@@ -36,6 +36,19 @@ class TaskViewSet(ViewSet):
         return Response(TaskSerializer(tasks, many=True).data)
 
     @swagger_auto_schema(manual_parameters=[TENANT_HEADER])
+    def retrieve(self, request, pk=None):
+        user = self.get_user(request)
+        db = ensure_tenant_db_registered(user.tenant)
+
+        task = get_object_or_404(
+            Task.objects.using(db),
+            pk=pk,
+            is_deleted=False,
+        )
+
+        return Response(TaskSerializer(task).data)
+
+    @swagger_auto_schema(manual_parameters=[TENANT_HEADER])
     def create(self, request):
         user = self.get_user(request)
         db = ensure_tenant_db_registered(user.tenant)
@@ -50,6 +63,7 @@ class TaskViewSet(ViewSet):
             project=project,
             title=request.data.get("title"),
             description=request.data.get("description", ""),
+            assigned_to=request.data.get("assigned_to"),
         )
 
         return Response(
@@ -94,7 +108,7 @@ class TaskViewSet(ViewSet):
             pk=pk,
         )
 
-        activities = task.activities.all()
+        activities = task.activities.all().order_by("-created_at")
         return Response(
             TaskActivitySerializer(activities, many=True).data
         )

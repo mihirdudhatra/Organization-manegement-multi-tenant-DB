@@ -132,13 +132,17 @@ def login_ui_view(request):
         if response.status_code == 200:
             data = response.json()
 
-            request.session["access_token"] = data["access"]
-            request.session["refresh_token"] = data["refresh"]
+            request.session.update(
+                {
+                    "access_token": data["access"],
+                    "refresh_token": data["refresh"],
+                    "role": data.get("role"),
+                    "tenant_id": data.get("tenant_id"),
+                    "username": data.get("username"),
+                    "is_authenticated": True,
+                }
+            )
 
-            # Optional (useful for UI logic)
-            request.session["role"] = data.get("role")
-            request.session["tenant_id"] = data.get("tenant_id")
-            request.session["is_authenticated"] = True
 
             request.session.save()
 
@@ -158,16 +162,30 @@ def logout_ui_view(request):
     request.session.flush()
     return redirect("login-ui")
 
+def _auth_headers(request):
+    token = request.session.get("access_token")
+    tenant_id = request.session.get("tenant_id")
+
+    if not token or not tenant_id:
+        return None
+
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-Tenant-ID": tenant_id,
+    }
 
 def user_list_ui(request):
-    tenant_id = request.session.get("tenant_id", str(request.user.tenant.id))
+    if not request.session.get("is_authenticated"):
+        return redirect("login-ui")
+
+    headers = _auth_headers(request)
+    if not headers:
+        return redirect("login-ui")
 
     response = requests.get(
         f"{settings.API_BASE_URL}/api/v1/users/",
-        headers={
-            "X-Tenant-ID": tenant_id,
-        },
-        timeout=5,
+        headers=headers,
+        # timeout=5,
     )
 
     return render(
@@ -178,7 +196,10 @@ def user_list_ui(request):
 
 
 def user_create_ui(request):
-    tenant_id = request.session.get("tenant_id", str(request.user.tenant.id))
+    if not request.session.get("is_authenticated"):
+        return redirect("login-ui")
+
+    headers = _auth_headers(request)
 
     if request.method == 'POST':
         response = requests.post(
@@ -189,10 +210,8 @@ def user_create_ui(request):
                 'password': request.POST['password'],
                 'role': request.POST['role'],
             },
-            headers={
-                "X-Tenant-ID": tenant_id,
-            },
-            timeout=5,
+            headers=headers,
+            # timeout=5,
         )
         if response.status_code == 201:
             return redirect('user-list')
@@ -208,39 +227,61 @@ def user_create_ui(request):
 
 
 def user_update_ui(request, user_id):
-    tenant_id = request.session.get("tenant_id", str(request.user.tenant.id))
+    if not request.session.get("is_authenticated"):
+        return redirect("login-ui")
 
-    if request.method == 'POST':
+    headers = _auth_headers(request)
+
+    if request.method == "POST":
         data = {
-            'username': request.POST['username'],
-            'email': request.POST['email'],
-            'role': request.POST['role'],
+            "username": request.POST.get("username"),
+            "email": request.POST.get("email"),
         }
-        if request.POST.get('password'):
-            data['password'] = request.POST['password']
+
+        role = request.POST.get("role")
+        if role:
+            data["role"] = role
+
+        password = request.POST.get("password")
+        if password:
+            data["password"] = password
+
         response = requests.put(
             f"{settings.API_BASE_URL}/api/v1/users/{user_id}/",
             json=data,
-            headers={"X-Tenant-ID": tenant_id},
-            timeout=5,
+            headers=headers,
         )
-        if response.status_code == 200:
-            return redirect('user-list')
-        else:
-            error = response.json()
-            return render(request, 'users/update.html', {'error': error, 'user_id': user_id})
 
-    # GET: fetch current data
+        if response.status_code == 200:
+            return redirect("user-list")
+
+        return render(
+            request,
+            "users/update.html",
+            {
+                "error": response.json(),
+                "user": request.POST,
+            },
+        )
+
+    # GET request
     response = requests.get(
         f"{settings.API_BASE_URL}/api/v1/users/{user_id}/",
-        headers={"X-Tenant-ID": tenant_id},
-        timeout=5,
+        headers=headers,
     )
+
     if response.status_code == 200:
-        user = response.json()
-        return render(request, 'users/update.html', {'user': user})
-    else:
-        return redirect('user-list')
+        return render(
+            request,
+            "users/update.html",
+            {
+                "user": response.json(),
+                "current_role": request.session.get("role"),
+            },
+        )
+
+    return redirect("user-list")
+
 
 
 def user_delete_ui(request, user_id):

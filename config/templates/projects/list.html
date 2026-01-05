@@ -18,6 +18,7 @@
                 <p class="card-text">{{ project.description }}</p>
                 <div class="d-flex justify-content-between">
                     <a href="{% url 'project-update' project.id %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                    <a href="{% url 'project-analytics-ui' project.id %}" class="btn btn-outline-info btn-sm">Analytics</a>
                     <a href="{% url 'project-delete' project.id %}" class="btn btn-outline-danger btn-sm">Delete</a>
                 </div>
             </div>

@@ -42,12 +42,22 @@ def task_list_ui(request, project_id=None):
     )
 
     tasks = response.json() if response.status_code == 200 else []
+    users_res = requests.get(
+        f"{settings.API_BASE_URL}/api/v1/users/",
+        headers=headers,
+    )
+    users = users_res.json() if users_res.status_code == 200 else []
 
     return render(
         request,
         "tasks/list.html",
-        {"tasks": tasks, "project_id": project_id},
+        {
+            "tasks": tasks,
+            "users": users,
+            "project_id": project_id,
+        },
     )
+
 
 def task_create_ui(request, project_id=None):
     if not request.session.get("is_authenticated"):
@@ -89,7 +99,14 @@ def task_create_ui(request, project_id=None):
     projects_res = requests.get(
         f"{settings.API_BASE_URL}/api/v1/projects/",
         headers=headers,
+        timeout=5,
     )
+    users_res = requests.get(
+        f"{settings.API_BASE_URL}/api/v1/users/",
+        headers=headers,
+    )
+    users = users_res.json() if users_res.status_code == 200 else []
+
 
     return render(
         request,
@@ -97,7 +114,7 @@ def task_create_ui(request, project_id=None):
         {
             "projects": projects_res.json() if projects_res.status_code == 200 else [],
             "project_id": project_id,
-            "users": [],  
+            "users": users,  
         },
     )
 
@@ -141,10 +158,18 @@ def task_update_ui(request, task_id):
     if response.status_code != 200:
         return redirect("task-list-ui")
 
+    users_res = requests.get(
+        f"{settings.API_BASE_URL}/api/v1/users/",
+        headers=headers,
+        timeout=5,
+    )
+    users = users_res.json() if users_res.status_code == 200 else []
+
+
     return render(
         request,
         "tasks/update.html",
-        {"task": response.json(), "users": []},
+        {"task": response.json(), "users": users},
     )
 
 
@@ -163,11 +188,22 @@ def task_detail_ui(request, task_id):
 
     if response.status_code != 200:
         return redirect("task-list-ui")
+    task = response.json()
+    users_res = requests.get(
+        f"{settings.API_BASE_URL}/api/v1/users/",
+        headers=headers,
+        timeout=5,
+    )
+
+    users = users_res.json() if users_res.status_code == 200 else []
 
     return render(
         request,
         "tasks/detail.html",
-        {"task": response.json()},
+        {
+            "task": task,
+            "users": users,
+        },
     )
 
 def task_delete_ui(request, task_id):
@@ -200,26 +236,69 @@ def task_delete_ui(request, task_id):
 
 
 def task_status_update_ui(request, task_id):
-    if not request.user.is_authenticated:
+    if not request.session.get("is_authenticated"):
         return redirect("login-ui")
 
-    if request.method == 'POST' and 'status' in request.POST:
-        set_current_tenant(request.user.tenant)
-        try:
-            task = TaskService.get_task(user=request.user, task_id=task_id)
-            TaskService.update_task(user=request.user, task=task, status=request.POST["status"])
-        except Exception:
-            pass
+    headers = _auth_headers(request)
+    if not headers:
+        return redirect("login-ui")
+
+    if request.method == "POST":
+        payload = {}
+
+        # Inline status update
+        if "status" in request.POST:
+            payload["status"] = request.POST.get("status")
+
+        # Inline assignment update
+        if "assigned_to" in request.POST:
+            payload["assigned_to"] = request.POST.get("assigned_to") or None
+
+        if payload:
+            requests.patch(
+                f"{settings.API_BASE_URL}/api/v1/tasks/{task_id}/",
+                json=payload,
+                headers=headers,
+            )
     return redirect("task-list-ui")
 
 def task_audit_ui(request, task_id):
+    if not request.session.get("is_authenticated"):
+        return redirect("login-ui")
+
+    headers = _auth_headers(request)
+    if not headers:
+        return redirect("login-ui")
+
     try:
-        activities = api_get(request, f"/api/v1/tasks/{task_id}/audit/")
-    except Exception:
+        res = requests.get(
+            f"{settings.API_BASE_URL}/api/v1/tasks/{task_id}/audit/",
+            headers=headers,
+            timeout=5,
+        )
+
+        if res.status_code == 200:
+            activities = res.json()
+        else:
+            activities = []
+
+    except requests.RequestException:
         activities = []
-    return render(request, "tasks/audit.html", {"activities": activities})
+
+    return render(
+        request,
+        "tasks/audit.html",
+        {"activities": activities},
+    )
+
 
 def task_sla_ui(request, task_id):
+    if not request.session.get("is_authenticated"):
+        return redirect("login-ui")
+
+    headers = _auth_headers(request)
+    if not headers:
+        return redirect("login-ui")
     try:
         sla = api_get(request, f"/api/v1/tasks/{task_id}/sla/")
     except Exception:

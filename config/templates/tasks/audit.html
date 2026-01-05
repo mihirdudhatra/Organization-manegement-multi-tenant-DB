@@ -1,32 +1,46 @@
 {% extends "base/base.html" %}
+{% block title %}Task Audit Log{% endblock %}
 {% block content %}
 
-<h2>Task Audit Log</h2>
+<h2 class="mb-4">Task Audit Log</h2>
 
-<table border="1" cellpadding="8">
-  <tr>
-    <th>Action</th>
-    <th>Old</th>
-    <th>New</th>
-    <th>By</th>
-    <th>Date</th>
-  </tr>
+<div class="table-responsive">
+  <table class="table table-bordered table-striped align-middle">
+    <thead class="table-light">
+    <tr>
+      <th>Action</th>
+      <th>Old Value</th>
+      <th>New Value</th>
+      <th>Performed By</th>
+      <th>Date</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for a in activities %}
+    <tr>
+      <td>
+                    <span class="badge bg-secondary">
+                        {{ a.action }}
+                    </span>
+      </td>
+      <td>{{ a.old_value }}</td>
+      <td>{{ a.new_value }}</td>
+      <td>{{ a.performed_by_name }}</td>
+      <td>{{ a.created_at }}</td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="5" class="text-center text-muted">
+        No audit data available
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 
-  {% for a in activities %}
-  <tr>
-    <td>{{ a.action }}</td>
-    <td>{{ a.old_value|default:"-" }}</td>
-    <td>{{ a.new_value|default:"-" }}</td>
-    <td>{{ a.performed_by }}</td>
-    <td>{{ a.created_at }}</td>
-  </tr>
-  {% empty %}
-  <tr>
-    <td colspan="5">No audit data</td>
-  </tr>
-  {% endfor %}
-</table>
-
-<a href="{% url 'task-list-ui' %}">← Back</a>
+<a href="{% url 'task-list-ui' %}" class="btn btn-outline-secondary mt-3">
+  ← Back to Tasks
+</a>
 
 {% endblock %}

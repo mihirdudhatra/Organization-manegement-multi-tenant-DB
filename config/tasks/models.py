@@ -25,10 +25,11 @@ class Task(models.Model):
         default=Status.OPEN,
     )
 
-    assigned_to = models.IntegerField()
+    assigned_to = models.IntegerField(null=True, blank=True)
 
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 
@@ -60,8 +61,9 @@ class TaskActivity(models.Model):
 
     comment = models.TextField(blank=True)
 
-    performed_by = models.IntegerField()
+    performed_by = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -72,7 +74,7 @@ class TaskSLA(models.Model):
     """
     Stores time spent in each status for a task.
     """
-
+    _tenant_model = True
     task = models.OneToOneField(
         Task,
         on_delete=models.CASCADE,
