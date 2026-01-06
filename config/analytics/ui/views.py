@@ -25,12 +25,19 @@ def project_analytics_ui(request, project_id):
         return redirect("login-ui")
 
     try:
-        snapshots = requests.get(f"{settings.API_BASE_URL}/api/v1/analytics/projects/{project_id}/", headers, )
+        response = requests.get(f"{settings.API_BASE_URL}/api/v1/analytics/projects/{project_id}/", headers= headers, )
     except Exception:
         snapshots = []
+
+    snapshots = []
+    if response.status_code == 200:
+        snapshots = response.json()
 
     return render(
         request,
         "analytics/project_dashboard.html",
-        {"snapshots": snapshots},
+        {
+            "snapshots": snapshots,
+            "project_id": project_id,
+        },
     )

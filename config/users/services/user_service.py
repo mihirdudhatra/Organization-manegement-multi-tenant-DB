@@ -3,12 +3,13 @@ from django.core.exceptions import PermissionDenied
 from config.permissions import Permissions
 from system.tenant_context import get_current_tenant_db as get_current_tenant, set_current_tenant_db as set_current_tenant
 from system.db_registry import ensure_tenant_db_registered
+from users.models import TenantUser
 
 class UserService:
 
     @staticmethod
     def list_users(*, user):
-        base_qs = User.objects.filter(tenant_id=user.tenant.id)
+        base_qs = User.objects.filter(tenant_id=user.tenant.id).order_by("role", "username")
 
         if user.role == User.Role.ADMIN:
             return base_qs
@@ -21,18 +22,22 @@ class UserService:
 
     @staticmethod
     def create_user(*, user, username: str, email: str, password: str, role: str) -> User:
+        db = ensure_tenant_db_registered(user.tenant)
+        set_current_tenant(db)
         if not Permissions.can_create_user(user):
             raise PermissionDenied("Not allowed to create users")
 
         # Ensure the created user is associated with the current tenant
-        return User.objects.create_user(
+        user_obj = User.objects.create_user(
             username=username,
             email=email,
             password=password,
             role=role,
             tenant=user.tenant,
         )
+        TenantUser.objects.using(db).create(auth_user=user_obj.id, tenant=user.tenant.id.hex, role=user_obj .Role)
 
+        return user_obj
     @staticmethod
     def update_user(*, user, target_user: User, **updates) -> User:
         if not Permissions.can_update_user(user):
